@@ -26,6 +26,8 @@ import sys
 import pygame
 import random
 import level
+import scoreBoard
+import keyLogger
 
 from pygame.locals import *
 
@@ -36,11 +38,15 @@ pygame.display.set_caption('Geometric Run')
 
 frameRate = pygame.time.Clock()
 
-# define global here, they are required for some elements to function properly
-global click, frame # external definition of some variables that need to be passed freely everywhere
+# define global here, they are required for ome elements to function properly
+global click, frame, user, nick, password # external definition of some variables that need to be passed freely everywhere
 
 # variables that have to stay same in between multiple frames
-mousex, mousey, click, menuOffset, levelOffset, hiScore, gravity, jumpForce, onGround, inJump = 0, 0, False, 0, 0, 0, 0, 0, False, False
+mousex, mousey, click, last_click, menuOffset, levelOffset, hiScore = 0, 0, False, False, 0, 0, 0
+gravity, jumpForce, onGround, inJump = 0, 0, False, False
+nick, password, user = "", "", -1
+user_field_in_focus = False
+pass_field_in_focus = False
 
 GREEN =     (0, 255, 0) # define basic colors for further use with text
 RED =       (255, 0, 0)
@@ -73,6 +79,9 @@ bgCol = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
 
 # set up usage of level loading class
 Levels = level.Level()
+Scores = scoreBoard.Score()
+Username = keyLogger.KeyLogger(300, 20)
+Password = keyLogger.KeyLogger(300, 20)
 
 # get headers and info for levels as well as levels themselves
 levelHead, g = Levels.loadLevels()
@@ -83,18 +92,60 @@ frame = 0
 
 
 ########################################################################################################################
+#####################################################      LogIn     ###################################################
+def log_in() :
+    global user_field_in_focus, pass_field_in_focus, user, password, nick, frame
+
+    userfield = pygame.Rect((250, 140), (300, 20))
+    passfield = pygame.Rect((250, 180), (300, 20))
+
+    pygame.draw.rect(window, PURPLE, userfield)
+    pygame.draw.rect(window, PURPLE, passfield)
+
+    if click :
+        user_field_in_focus = False
+        pass_field_in_focus = False
+
+    if userfield.collidepoint(mousex, mousey) and click :
+        user_field_in_focus = True
+    if passfield.collidepoint(mousex, mousey) and click :
+        pass_field_in_focus = True
+
+
+    if user_field_in_focus :
+        nick, user_surface = Username.getinput()
+        window.blit(user_surface, userfield)
+    if pass_field_in_focus :
+        password, password_surface = Password.getinput()
+        window.blit(password_surface, passfield)
+
+    log_in_base = pygame.Rect((320, 250), (160, 80))
+    pygame.draw.rect(window, PURPLE, log_in_base)
+
+    log_in_button = robN.render("LogIn", True, YELLOW, PURPLE)
+    log_in_rect = log_in_button.get_rect()
+    log_in_rect.center = log_in_base.center
+
+    window.blit(log_in_button, log_in_rect)
+
+    if log_in_base.collidepoint(mousex, mousey) and click :
+        user = Scores.login(nick, password)
+        if user != "" :
+            frame = 1
+
+########################################################################################################################
 ######################################################      Menu     ###################################################
 def main_menu() :
     global frame
-    button1 = pygame.Rect((250, 240), (300, 90))
+    button1 = pygame.Rect((310, 200), (220, 120))
     pygame.draw.rect(window, PURPLE, button1)
     text_surface = robN.render("Play", True, YELLOW, PURPLE)
-    btxt = text_surface.get_rect()
-    btxt.center = (400, 280)
-    window.blit(text_surface, btxt) # A BIG F***ING PLAY BUTTON
+    button_text_rect = text_surface.get_rect()
+    button_text_rect.center = (410, 270)
+    window.blit(text_surface, button_text_rect) # A BIG F***ING PLAY BUTTON
 
     if button1.collidepoint(mousex, mousey) and click :
-        frame = 1
+        frame = 2
 
 
 ########################################################################################################################
@@ -113,11 +164,11 @@ def select_level() : # loads and shows a list of levels and arrow buttons to nav
                 z += a
             c += 1
 
-        level_name = robN.render(z, True, YELLOW, PURPLE)
+        level_name = robN.render(z, True, YELLOW, PURPLE) # level selector button
         pygame.draw.rect(window, PURPLE, selector)
         window.blit(level_name, (pos1 * cctn - (50 + menuOffset * 400), pos2 + 20)) # level "icon"
         if selector.collidepoint(mousex, mousey) and click :
-            frame = 2
+            frame = 3
 
     # menuOffset triggers (e.g. left/right buttons for level select
     if menuOffset > 0 :
@@ -138,7 +189,7 @@ def select_level() : # loads and shows a list of levels and arrow buttons to nav
     mect.center = (70, 25)
     window.blit(menu, mect)
     if mect.collidepoint(mousex, mousey) and click :
-        frame = 0
+        frame = 1
 
 
 ########################################################################################################################
@@ -187,8 +238,6 @@ def player_movement(walls, spikes, jump_pads) :
     spiked = player.collidelist(spikes) # determines if player has smashed into any of the spikes that are available in the level to reset
     if spiked >= 0 or player_pos_y > 900:
         player_died()
-
-
 
     pygame.draw.rect(window, PURPLE, player)
 
@@ -257,10 +306,10 @@ def run_level() : # uses global variables that were set in level selection to ru
     exit_rect.center = (70, 25)
     window.blit(exit_button, exit_rect)
 
-    if exit_rect.collidepoint(mousex, mousey) or levelOffset > (len(selected_level[0])-2) * 60 : # goto score or end of level
+    if exit_rect.collidepoint(mousex, mousey) or levelOffset > (len(selected_level[0]) - 2) * 60 : # goto score or end of level
         if hiScore < len(g[menuOffset][0]) * 60 / levelOffset :
             hiScore = len(g[menuOffset][0]) * 60 / levelOffset
-        frame = 3
+        frame = 4
 
 
 ########################################################################################################################
@@ -273,15 +322,14 @@ def game_score() :
 ##################################################      Game Loop     ##################################################
 while True : # game loop
     click = False
-    for event in pygame.event.get() : # event listener
-        if event.type == MOUSEMOTION :
-            mousex, mousey = event.pos
-        if event.type == MOUSEBUTTONUP :
-            click = True
-            bgCol = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)) # get new bgcolour for every click
-        if event.type == QUIT :
-            pygame.quit()
-            sys.exit()
+    if not last_click :
+        click = pygame.mouse.get_pressed()[0]
+
+    mousex, mousey = pygame.mouse.get_pos()
+
+    if click :
+        last_click = True
+        bgCol = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)) # get new bgcolor for every click
 
     # background movement mechanism, it is on constant movement to the left
     bgLoc1 -= 1
@@ -303,13 +351,22 @@ while True : # game loop
     # for instance mainMenu function introduces buttons that wil send player to level select menu or game hi-score
     # also this way debugging is easier
     if frame == 0:
-        main_menu()
+        log_in()
     elif frame == 1 :
-        select_level()
+        main_menu()
     elif frame == 2 :
-        run_level()
+        select_level()
     elif frame == 3 :
+        run_level()
+    elif frame == 4 :
         game_score()
+
+    for event in pygame.event.get() :
+        if event.type == QUIT :
+            pygame.quit()
+            sys.exit()
+        if event.type == MOUSEBUTTONUP :
+            last_click = False
 
     pygame.display.update()
     frameRate.tick(30)
