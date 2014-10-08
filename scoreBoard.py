@@ -16,15 +16,14 @@ import MySQLdb
 
 class Score :
     def __init__(self) :
-        self.db_con = MySQLdb.connect(host = '', user = '', passwd = '', db = '')
+        self.db_con = MySQLdb.connect(host='', user='', passwd='', db='')
         self.c = self.db_con.cursor()
 
     def login(self, nick, password) :
         my_query = "SELECT * FROM users WHERE nick = '" + nick + "';"
         self.c.execute(my_query)
         ans = self.c.fetchone()
-        print ans
-        if len(ans) > 0 :
+        if ans :
             if ans[2] == password :
                 return ans[0]
             else :

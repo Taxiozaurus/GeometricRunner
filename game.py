@@ -43,7 +43,7 @@ global click, frame, user, nick, password # external definition of some variable
 
 # variables that have to stay same in between multiple frames
 mousex, mousey, click, last_click, menuOffset, levelOffset, hiScore = 0, 0, False, False, 0, 0, 0
-gravity, jumpForce, onGround, inJump = 0, 0, False, False
+gravity, jumpForce, initJump, onGround, inJump = 0, 0, 0, False, False
 nick, password, user = "", "", -1
 user_field_in_focus = False
 pass_field_in_focus = False
@@ -65,6 +65,7 @@ WallBr =      pygame.image.load("assets/wallBr.png") # walls, BRick and HaZard
 WallHz =      pygame.image.load("assets/wallHz.png")
 plato =       pygame.image.load("assets/plato.png") # a thin surface
 pad =         pygame.image.load("assets/pad.png")   # launches player 2 times as high as normal jump does
+player =      pygame.image.load("assets/player.png")
 
 # fonts
 robN = pygame.font.Font('assets/robotoNormal.ttf', 30)
@@ -75,13 +76,13 @@ bgLoc1 = 0
 bgLoc2 = 800
 
 # random background color because image is transparent and game is kinda colourful, at least it is supposed to be
-bgCol = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255))
+bgCol = (random.randint(60, 255), random.randint(60, 255), random.randint(60, 255))
 
 # set up usage of level loading class
 Levels = level.Level()
 Scores = scoreBoard.Score()
-Username = keyLogger.KeyLogger(300, 20)
-Password = keyLogger.KeyLogger(300, 20)
+Username = keyLogger.KeyLogger(300, 20, "username")
+Password = keyLogger.KeyLogger(300, 20, "password")
 
 # get headers and info for levels as well as levels themselves
 levelHead, g = Levels.loadLevels()
@@ -96,30 +97,28 @@ frame = 0
 def log_in() :
     global user_field_in_focus, pass_field_in_focus, user, password, nick, frame
 
-    userfield = pygame.Rect((250, 140), (300, 20))
-    passfield = pygame.Rect((250, 180), (300, 20))
+    user_field = pygame.Rect((250, 140), (300, 20)) # placement of text fields for both username and password
+    password_field = pygame.Rect((250, 180), (300, 20))
 
-    pygame.draw.rect(window, PURPLE, userfield)
-    pygame.draw.rect(window, PURPLE, passfield)
+    pygame.draw.rect(window, PURPLE, user_field) # apply beforehand to secure proper focus selection
+    pygame.draw.rect(window, PURPLE, password_field)
 
-    if click :
+    if click : # text field de-select
         user_field_in_focus = False
         pass_field_in_focus = False
 
-    if userfield.collidepoint(mousex, mousey) and click :
+    if user_field.collidepoint(mousex, mousey) and click : # text field select
         user_field_in_focus = True
-    if passfield.collidepoint(mousex, mousey) and click :
+    if password_field.collidepoint(mousex, mousey) and click :
         pass_field_in_focus = True
 
+    nick, user_surface = Username.get_input(user_field_in_focus) # gather data from keyLogger class
+    password, password_surface = Password.get_input(pass_field_in_focus)
 
-    if user_field_in_focus :
-        nick, user_surface = Username.getinput()
-        window.blit(user_surface, userfield)
-    if pass_field_in_focus :
-        password, password_surface = Password.getinput()
-        window.blit(password_surface, passfield)
+    window.blit(user_surface, user_field)
+    window.blit(password_surface, password_field)
 
-    log_in_base = pygame.Rect((320, 250), (160, 80))
+    log_in_base = pygame.Rect((320, 250), (160, 40))
     pygame.draw.rect(window, PURPLE, log_in_base)
 
     log_in_button = robN.render("LogIn", True, YELLOW, PURPLE)
@@ -137,11 +136,11 @@ def log_in() :
 ######################################################      Menu     ###################################################
 def main_menu() :
     global frame
-    button1 = pygame.Rect((310, 200), (220, 120))
+    button1 = pygame.Rect((300, 150), (200, 120))
     pygame.draw.rect(window, PURPLE, button1)
     text_surface = robN.render("Play", True, YELLOW, PURPLE)
     button_text_rect = text_surface.get_rect()
-    button_text_rect.center = (410, 270)
+    button_text_rect.center = (400, 210)
     window.blit(text_surface, button_text_rect) # A BIG F***ING PLAY BUTTON
 
     if button1.collidepoint(mousex, mousey) and click :
@@ -152,7 +151,7 @@ def main_menu() :
 ##################################################      Level Select    ################################################
 def select_level() : # loads and shows a list of levels and arrow buttons to navigate level selection
     global menuOffset, frame
-    pos1, pos2 = 400, 200 # button offsets in x/y grid
+    pos1, pos2 = 400, 150 # button offsets in x/y grid
     cctn = 0
     for i in levelHead :
         cctn += 1 # for loop gives back an array (i) from the 2D levelHead array, thus external integer is required for count
@@ -166,20 +165,20 @@ def select_level() : # loads and shows a list of levels and arrow buttons to nav
 
         level_name = robN.render(z, True, YELLOW, PURPLE) # level selector button
         pygame.draw.rect(window, PURPLE, selector)
-        window.blit(level_name, (pos1 * cctn - (50 + menuOffset * 400), pos2 + 20)) # level "icon"
+        window.blit(level_name, (pos1 * cctn - (35 + menuOffset * 400), pos2 + 20)) # level "icon"
         if selector.collidepoint(mousex, mousey) and click :
             frame = 3
 
     # menuOffset triggers (e.g. left/right buttons for level select
     if menuOffset > 0 :
-        menu_left = pygame.Rect((200, 210), (50, 100))
-        pygame.draw.polygon(window, BLUE, ((250, 210), (250, 310), (200, 260)))
+        menu_left = pygame.Rect((200, 160), (50, 100))
+        pygame.draw.polygon(window, BLUE, ((250, 160), (250, 260), (200, 210)))
         if menu_left.collidepoint(mousex,mousey) and click :
             menuOffset -= 1
             print menuOffset
     if menuOffset < len(g) - 1 :
         menu_right = pygame.Rect((550, 210), (50, 100))
-        pygame.draw.polygon(window, BLUE, ((550, 210), (550, 310), (600, 260)))
+        pygame.draw.polygon(window, BLUE, ((550, 160), (550, 260), (600, 210)))
         if menu_right.collidepoint(mousex, mousey) and click :
             menuOffset += 1
             print menuOffset
@@ -195,7 +194,7 @@ def select_level() : # loads and shows a list of levels and arrow buttons to nav
 ########################################################################################################################
 ####################################################      Player     ###################################################
 def player_died() : # this function is a sequence that will be triggered every time player smashes into something (fails)
-    global hiScore, levelOffset, gravity, jumpForce, inJump, onGround
+    global hiScore, levelOffset, gravity, jumpForce, inJump, onGround, initJump
     if hiScore < len(g[menuOffset][0]) * 60 / levelOffset : # check hi-score
             hiScore = len(g[menuOffset][0]) * 60 / levelOffset # apply new value
 
@@ -209,13 +208,25 @@ def player_died() : # this function is a sequence that will be triggered every t
 
 def player_movement(walls, spikes, jump_pads) :
     global levelOffset, gravity, onGround, hiScore, jumpForce, inJump, initJump
-    player_y = 300
+    player_y = 240
+
+    player_pos_y = player_y + gravity - jumpForce
+
+    player_position = pygame.Rect((120, player_pos_y), (60, 60)) # set up position of player
 
     if click and onGround : #jump action
         inJump = True
         jumpForce = 15
         initJump = 15
         onGround = False
+
+    for this_pad in jump_pads :
+        if player_position.collidepoint(this_pad.center) : # jump pad detection, can NOT activate in air
+            if not inJump :
+                inJump = True
+                onGround = False
+                jumpForce = 20
+                initJump = 20
 
     if inJump : # jump is separated from gravity as gravity will override proper sequence of acceleration
         jumpForce = jumpForce + initJump - 1
@@ -225,21 +236,24 @@ def player_movement(walls, spikes, jump_pads) :
         gravity += 10
 
     player_pos_y = player_y + gravity - jumpForce
+    player_position.y = player_pos_y
 
-    player = pygame.Rect((120, player_pos_y), (60, 60)) # set up position of player
-    #event/execute/collisionCheck/apply
     onGround = False
     for wall in walls :
-        if 90 < wall.centerx < 210 and wall.top >= player.bottom : # if player is on ground
-            if wall.top == player.bottom :
+        if 90 < wall.centerx < 210 and wall.top >= player_position.bottom : # if player is on ground
+            if -10 < wall.top - player_position.bottom < 10 : #
+                player_pos_y = wall.top - 60
+                gravity += player_pos_y - (player_y + gravity)
+                jumpForce = 0
+                initJump = 0
                 onGround = True
                 inJump = False
 
-    spiked = player.collidelist(spikes) # determines if player has smashed into any of the spikes that are available in the level to reset
+    spiked = player_position.collidelist(spikes) # determines if player has smashed into any of the spikes that are available in the level to reset
     if spiked >= 0 or player_pos_y > 900:
         player_died()
 
-    pygame.draw.rect(window, PURPLE, player)
+    window.blit(player, player_position)
 
 
 ########################################################################################################################
@@ -262,42 +276,42 @@ def run_level() : # uses global variables that were set in level selection to ru
             # wallNormal/wallHazard/spikeLeft/spikeUp/spikeRight/spikeDown/smallSpike/jumpPad/plato/empty
             # these if statements serve as a level generator by utilizing a 60x60 px grid
 
-            h = pygame.Rect((60 * a - levelOffset, 60 * i), (60, 60))
-
-            if selected_level[i][a] == 'h' :
-                window.blit(WallHz, h)
-                walls.append(h)
-            elif selected_level[i][a] == 'w' :
-                window.blit(WallBr, h)
-                walls.append(h)
-            elif selected_level[i][a] == '<' :
-                sl = pygame.Rect((60 * a - levelOffset + 10, 60 * i + 20), (50, 20))
-                window.blit(SpikeLf, h)
-                spikes.append(sl)
-            elif selected_level[i][a] == '^' :
-                su = pygame.Rect((60 * a - levelOffset + 20, 60 * i + 10), (20, 50))
-                window.blit(SpikeUp, h)
-                spikes.append(su)
-            elif selected_level[i][a] == '>' :
-                sr = pygame.Rect((60 * a - levelOffset + 10, 60 * i), (50, 20))
-                window.blit(SpikeRt, h)
-                spikes.append(sr)
-            elif selected_level[i][a] == 'v' :
-                sd = pygame.Rect((60 * a - levelOffset + 20, 60 * i), (20, 50))
-                window.blit(SpikeDw, h)
-                spikes.append(sd)
-            elif selected_level[i][a] == 's' :
-                s = pygame.Rect((60 * a - levelOffset, 60 * i + 45), (60, 15))
-                window.blit(SpikeSm, s)
-                spikes.append(s)
-            elif selected_level[i][a] == 'p' :
-                p = pygame.Rect((60 * a - levelOffset, 60 * i), (60, 15))
-                window.blit(plato, p)
-                walls.append(p)
-            elif selected_level[i][a] == 'j' :
-                j = pygame.Rect((60 * a - levelOffset, 60 * i + 45), (60, 15))
-                window.blit(pad, j)
-                jump_pads.append(pad)
+            h = pygame.Rect((60 * a - levelOffset, 60 * i), (60, 60)) # reduce the number of elements on screen
+            if -60 < 60 * a - levelOffset < 900 :
+                if selected_level[i][a] == 'h' :
+                    window.blit(WallHz, h)
+                    walls.append(h)
+                elif selected_level[i][a] == 'w' :
+                    window.blit(WallBr, h)
+                    walls.append(h)
+                elif selected_level[i][a] == '<' :
+                    sl = pygame.Rect((60 * a - levelOffset + 10, 60 * i + 20), (50, 20))
+                    window.blit(SpikeLf, h)
+                    spikes.append(sl)
+                elif selected_level[i][a] == '^' :
+                    su = pygame.Rect((60 * a - levelOffset + 20, 60 * i + 10), (20, 50))
+                    window.blit(SpikeUp, h)
+                    spikes.append(su)
+                elif selected_level[i][a] == '>' :
+                    sr = pygame.Rect((60 * a - levelOffset + 10, 60 * i), (50, 20))
+                    window.blit(SpikeRt, h)
+                    spikes.append(sr)
+                elif selected_level[i][a] == 'v' :
+                    sd = pygame.Rect((60 * a - levelOffset + 20, 60 * i), (20, 50))
+                    window.blit(SpikeDw, h)
+                    spikes.append(sd)
+                elif selected_level[i][a] == 's' :
+                    s = pygame.Rect((60 * a - levelOffset, 60 * i + 45), (60, 15))
+                    window.blit(SpikeSm, s)
+                    spikes.append(s)
+                elif selected_level[i][a] == 'p' :
+                    p = pygame.Rect((60 * a - levelOffset, 60 * i), (60, 15))
+                    window.blit(plato, p)
+                    walls.append(p)
+                elif selected_level[i][a] == 'j' :
+                    j = pygame.Rect((60 * a - levelOffset, 60 * i), (60, 15))
+                    window.blit(pad, j)
+                    jump_pads.append(j)
 
     player_movement(walls, spikes, jump_pads)
 
@@ -329,7 +343,7 @@ while True : # game loop
 
     if click :
         last_click = True
-        bgCol = (random.randint(0, 255), random.randint(0, 255), random.randint(0, 255)) # get new bgcolor for every click
+        bgCol = (random.randint(60, 255), random.randint(60, 255), random.randint(60, 255)) # get new bgcolor for every click
 
     # background movement mechanism, it is on constant movement to the left
     bgLoc1 -= 1
@@ -370,3 +384,7 @@ while True : # game loop
 
     pygame.display.update()
     frameRate.tick(30)
+
+########################################################################################################################
+#################################################  END  ################################################################
+########################################################################################################################
