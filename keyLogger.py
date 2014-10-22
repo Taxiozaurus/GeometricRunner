@@ -13,10 +13,10 @@ class KeyLogger :
         self.robC = pygame.font.Font('assets/robotoCondens.ttf', 14)
         self.mode = mode
 
-    def get_input(self, focus) :
+    def get_input(self, focus) : # get button presses
         color = (40, 40, 40)
         if focus :
-            color = (80, 80, 80)
+            color = (80, 80, 80) # change input background so user can see what field is active
             for event in pygame.event.get(KEYDOWN) :
                 key_name = str(pygame.key.name(event.key))
                 if key_name in low_keys :
