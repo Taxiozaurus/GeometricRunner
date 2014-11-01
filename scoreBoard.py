@@ -31,6 +31,15 @@ class Score :
         else :
             return ""
 
+    def register(self, nick, password):
+        data = self.login(nick, password)
+        if data > -1 :
+            my_query = "INSERT INTO users (nick, password) VALUES ('" + nick + "','" + password + "')"
+            self.c.execute(my_query)
+            self.db_con.commit()
+        return self.login(nick, password)
+
+
     def send_score(self, u_id, level, score) :
         my_query = "SELECT score FROM hiscore WHERE u_id = " + str(u_id) + " AND level = '" + level + "' ;"
         self.c.execute(my_query)
@@ -45,7 +54,7 @@ class Score :
         self.db_con.commit()
 
     def get_scores(self, level) :
-        my_query = "SELECT nick, score FROM users JOIN hiscore ON id = u_id WHERE level = '" + level + "' LIMIT 0,10 ;"
+        my_query = "SELECT nick, score FROM users JOIN hiscore ON id = u_id WHERE level = '" + level + "' ORDER BY score LIMIT 0,10 ;"
         self.c.execute(my_query)
         ans = self.c.fetchall()
         self.db_con.commit()
@@ -55,6 +64,6 @@ class Score :
             return []
 
     def finish(self):
-        self.c.close()
         self.db_con.commit()
+        self.c.close()
         self.db_con.close()

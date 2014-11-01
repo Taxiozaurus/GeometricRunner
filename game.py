@@ -28,6 +28,7 @@ import random
 import level
 import scoreBoard
 import keyLogger
+import math
 
 from pygame.locals import *
 
@@ -43,11 +44,11 @@ global click, frame, user, nick, password, levelSurface # external definition of
 
 # variables that have to stay same in between multiple frames
 mousex, mousey, click, last_click, menuOffset, level_offset, vertical_offset, hiScore = 0, 0, False, False, 0, 0, 0, 0
-gravity, jumpForce, prevForce, initJump, onGround, inJump, player_pos_y = 0, 0, 0, 0, False, False, 240
+gravity, jumpForce, prevForce, initJump, onGround, inJump, player_pos_y, player_rotation, oldJump = 0, 0, 0, 0, False, False, 240, False, 0
 nick, password, user = "", "", -1
 user_field_in_focus = False
 pass_field_in_focus = False
-walls, jump_pads, spikes, loaded, called = [], [], [], False, False
+walls, jump_pads, spikes, loaded, calledm, angle_state, old_angle = [], [], [], False, False, 0, 0
 
 levelSurface = pygame.Surface((0, 0), SRCALPHA) # level rendering surface with alpha pixel value
 
@@ -72,6 +73,8 @@ WallHz =      pygame.image.load("assets/wallHz.png")
 plato =       pygame.image.load("assets/plato.png") # a thin surface
 pad =         pygame.image.load("assets/pad.png")   # launches player 2 times as high as normal jump does
 player =      pygame.image.load("assets/player.png")
+playerSurface = pygame.Surface((60, 60), SRCALPHA) # create a surface entity that will handle rotation of player in jump
+playerSurface.blit(player, (0, 0, 0, 0))
 
 # fonts
 robN = pygame.font.Font('assets/robotoNormal.ttf', 30)
@@ -126,14 +129,26 @@ def log_in() :
     log_in_base = pygame.Rect((320, 250), (160, 40))
     pygame.draw.rect(window, PURPLE, log_in_base)
 
+    reg_base = pygame.Rect((360, 300), (80, 20))
+    pygame.draw.rect(window, PURPLE, reg_base)
+
     log_in_button = robN.render("LogIn", True, YELLOW, PURPLE)
     log_in_rect = log_in_button.get_rect()
     log_in_rect.center = log_in_base.center
 
+    reg_button = robC.render("Register", True, YELLOW, PURPLE)
+    reg_rect = reg_button.get_rect()
+    reg_rect.center = reg_base.center
+
     window.blit(log_in_button, log_in_rect)
+    window.blit(reg_button, reg_rect)
 
     if log_in_base.collidepoint(mousex, mousey) and click :
         user = Scores.login(nick, password)
+        if user != "" :
+            frame = 1
+    if reg_base.collidepoint(mousex, mousey) and click :
+        user = Scores.register(nick, password)
         if user != "" :
             frame = 1
 
@@ -241,7 +256,7 @@ def jump(force) :
 
 
 def player_movement() :
-    global level_offset, gravity, onGround, hiScore, jumpForce, inJump, initJump, player_pos_y, walls, spikes, jump_pads
+    global level_offset, gravity, onGround, hiScore, jumpForce, inJump, initJump, player_pos_y, walls, spikes, jump_pads, player_rotation, old_angle, angle, playerSurface, angle_state, oldJump
     player_y = 240
 
     player_pos_y = player_y + gravity - jumpForce
@@ -279,13 +294,24 @@ def player_movement() :
     smashed = player_position.collidelist(walls)
     spiked = player_position.collidelist(spikes) # determines if player has smashed into any of the spikes that are available in the level to reset
     if spiked >= 0 or player_pos_y > 900 or smashed >= 0:
-        print "death"
         player_died()
 
     if click and onGround : #jump action
         jump(15)
 
-    window.blit(player, player_position)
+    travel = math.sqrt((oldJump - jumpForce) ** 2 + 144)
+    angle = math.degrees(math.acos(12 / travel))# get movement angle
+    oldJump = jumpForce
+    bsa = angle
+    if angle > old_angle != 0:
+        angle = 0 - angle
+
+    old_angle = bsa
+    if old_angle == 1 :
+        angle -= 180
+
+    new_surface = pygame.transform.rotate(playerSurface, angle)
+    window.blit(new_surface, player_position)
 
 
 ########################################################################################################################
@@ -357,13 +383,11 @@ def load_level():
 
 
 def run_level() : # uses global variables that were set in level selection to run desired level instead of them being passed by, this is because of implementing "frame" UI design
-    global hiScore, walls, spikes, jump_pads, frame, loaded, level_offset, levelSurface
+    global hiScore, walls, spikes, jump_pads, frame, loaded, level_offset, levelSurface, g
     level_offset -= 12
     if not loaded :
-        print "loading"
         load_level()
         loaded = True
-        print "ready"
 
     player_movement()
 
@@ -376,14 +400,15 @@ def run_level() : # uses global variables that were set in level selection to ru
     for z in range(0, len(jump_pads)) :
         jump_pads[z].centerx -= 12
     window.blit(levelSurface, ((level_offset, 0), (480, len(g[menuOffset][0]) * 60)))
+
     exit_button = robC.render("Exit", True, YELLOW, PURPLE)
     exit_rect = exit_button.get_rect()
     exit_rect.center = (70, 25)
     window.blit(exit_button, exit_rect)
 
-    if (exit_rect.collidepoint(mousex, mousey) and click) or level_offset > (len(g[menuOffset][0]) - 2) * 60 : # goto score or end of level
-        if hiScore < level_offset:
-            hiScore = level_offset
+    if (exit_rect.collidepoint(mousex, mousey) and click) or (-1 * level_offset > (len(g[menuOffset][0]) - 2) * 60) : # goto score or end of level
+        if hiScore < -1 * level_offset:
+            hiScore = -1 * level_offset
         loaded = False
         player_died()
         frame = 4
